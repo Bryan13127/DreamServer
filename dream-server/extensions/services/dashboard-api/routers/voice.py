@@ -106,23 +106,28 @@ async def voice_chat(
     """
     litellm_url = _svc_url("litellm")
 
-    payload: dict = {"messages": body.messages, "stream": False}
+    chat_payload: dict = {"messages": body.messages, "stream": False}
     if body.model:
-        payload["model"] = body.model
+        chat_payload["model"] = body.model
 
     timeout = aiohttp.ClientTimeout(total=120)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.post(
             f"{litellm_url}/v1/chat/completions",
-            json=payload,
+            json=chat_payload,
         ) as resp:
             if resp.status != 200:
-                body_text = await resp.text()
-                logger.error("LiteLLM returned %s: %s", resp.status, body_text)
+                error_text = await resp.text()
+                logger.error("LiteLLM returned %s: %s", resp.status, error_text)
                 raise HTTPException(status_code=502, detail="LLM request failed")
             data = await resp.json()
 
-    reply = data["choices"][0]["message"]["content"]
+    choices = data.get("choices")
+    if not choices:
+        raise HTTPException(status_code=502, detail="LLM returned no choices")
+    reply = choices[0].get("message", {}).get("content")
+    if reply is None:
+        raise HTTPException(status_code=502, detail="LLM response missing content")
     return {"response": reply}
 
 
@@ -144,7 +149,7 @@ async def voice_speak(
     """
     tts_url = _svc_url("tts")
 
-    payload = {
+    tts_payload = {
         "model": "kokoro",
         "input": body.text,
         "voice": body.voice,
@@ -156,9 +161,10 @@ async def voice_speak(
 
     async def audio_stream():
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(f"{tts_url}/v1/audio/speech", json=payload) as resp:
+            async with session.post(f"{tts_url}/v1/audio/speech", json=tts_payload) as resp:
                 if resp.status != 200:
-                    logger.error("Kokoro returned %s", resp.status)
+                    error_body = await resp.text()
+                    logger.error("Kokoro returned %s: %s", resp.status, error_body)
                     return
                 async for chunk in resp.content.iter_chunked(8192):
                     yield chunk

@@ -139,7 +139,8 @@ export function useVoiceAgent() {
       setCurrentTranscript('')
 
       // 2. Chat
-      const chatMessages = [...messagesRef.current.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: text.trim() }]
+      const history = messagesRef.current.map(m => ({ role: m.role, content: m.content }))
+      const chatMessages = [...history, { role: 'user', content: text.trim() }]
       const chatRes = await fetch('/api/voice/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,7 +159,7 @@ export function useVoiceAgent() {
 
       // Auto-restart listening after speaking (hands-free)
       if (continuousRef.current && !signal.aborted) {
-        startListening()
+        startListening().catch(err => setError(err.message))
       }
     } catch (err) {
       if (err.name === 'AbortError') return
