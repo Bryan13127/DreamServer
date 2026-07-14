@@ -72,7 +72,7 @@ function VoiceServicesBanner({ services, loading, onRefresh }) {
 
   if (!services) return null
 
-  const { stt, tts, livekit } = services.services || {}
+  const { stt, tts } = services.services || {}
   const allHealthy = services.available
 
   if (allHealthy) {
@@ -85,7 +85,6 @@ function VoiceServicesBanner({ services, loading, onRefresh }) {
         <div className="flex items-center gap-4 text-xs text-theme-text-muted">
           <span>STT ✓</span>
           <span>TTS ✓</span>
-          <span>LiveKit ✓</span>
         </div>
       </div>
     )
@@ -113,9 +112,6 @@ function VoiceServicesBanner({ services, loading, onRefresh }) {
         </span>
         <span className={tts?.status === 'healthy' ? 'text-green-400' : 'text-red-400'}>
           {tts?.status === 'healthy' ? '✓' : '✗'} Kokoro (TTS)
-        </span>
-        <span className={livekit?.status === 'healthy' ? 'text-green-400' : 'text-red-400'}>
-          {livekit?.status === 'healthy' ? '✓' : '✗'} LiveKit
         </span>
       </div>
       <p className="text-xs text-theme-text-muted mt-2">
@@ -473,7 +469,7 @@ export default function Voice() {
             <p className="text-sm text-red-400 font-medium">Connection Error</p>
             <p className="text-xs text-red-400/70 mt-1">{error}</p>
             <p className="text-xs text-theme-text-muted mt-2">
-              Make sure LiveKit server is running and voice services are enabled.
+              Make sure Whisper (STT) and Kokoro (TTS) services are running.
             </p>
           </div>
         </div>

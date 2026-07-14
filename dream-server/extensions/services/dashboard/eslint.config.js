@@ -36,6 +36,10 @@ export default [
         alert: "readonly",
         prompt: "readonly",
         performance: "readonly",
+        Audio: "readonly",
+        FormData: "readonly",
+        MediaRecorder: "readonly",
+        Blob: "readonly",
         // Vite
         process: "readonly",
       },
