@@ -19,6 +19,6 @@ export function VoiceProvider({ children }) {
 
 export function useVoice() {
   const ctx = useContext(VoiceContext)
-  if (!ctx) throw new Error('useVoice must be used inside <VoiceProvider>')
+  if (!ctx) throw new Error('useVoice must be used inside <VoiceProvider>. Wrap your app with <VoiceProvider> in App.jsx')
   return ctx
 }

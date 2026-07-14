@@ -168,7 +168,7 @@ export default function FloatingVoiceWidget() {
               }`}
             >
               {handsFree ? <Zap size={12} /> : <ZapOff size={12} />}
-              {handsFree ? 'Hands-free' : 'Hands-free'}
+              {handsFree ? 'Hands-free ON' : 'Hands-free OFF'}
             </button>
 
             <div className="flex items-center gap-2">

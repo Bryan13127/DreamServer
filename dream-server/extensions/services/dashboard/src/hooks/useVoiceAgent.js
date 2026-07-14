@@ -103,8 +103,8 @@ export function useVoiceAgent() {
   // Stop VAD monitoring and release the analysis stream
   const stopVAD = useCallback(() => {
     if (vadRef.current) {
-      cancelAnimationFrame(vadRef.current.animFrameId)
-      vadRef.current.audioContext.close().catch(() => {})
+      if (vadRef.current.animFrameId) cancelAnimationFrame(vadRef.current.animFrameId)
+      vadRef.current.audioContext.close().catch((err) => console.error('VAD cleanup error:', err))
       vadRef.current = null
     }
     if (vadStreamRef.current) {

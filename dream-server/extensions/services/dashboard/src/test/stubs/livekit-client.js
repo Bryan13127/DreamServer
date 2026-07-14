@@ -3,4 +3,7 @@
 export const Room = class {}
 export const RoomEvent = {}
 export const Track = { Kind: { Audio: 'audio' } }
-export const createLocalAudioTrack = async () => ({ mediaStream: null, detach: () => {} })
+export const createLocalAudioTrack = async () => ({
+  mediaStream: { getTracks: () => [] },
+  detach: () => {},
+})
