@@ -36,6 +36,7 @@ export default [
         alert: "readonly",
         prompt: "readonly",
         performance: "readonly",
+        BroadcastChannel: "readonly",
         // Vite
         process: "readonly",
       },

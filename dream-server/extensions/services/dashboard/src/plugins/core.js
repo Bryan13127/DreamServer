@@ -7,6 +7,7 @@ import {
   Box,
   Network,
   UserPlus,
+  Mic,
 } from 'lucide-react'
 
 const Dashboard = lazy(() => import('../pages/Dashboard'))
@@ -16,6 +17,7 @@ const GPUMonitor = lazy(() => import('../pages/GPUMonitor'))
 const Models = lazy(() => import('../pages/Models'))
 const ServiceMap = lazy(() => import('../pages/ServiceMap'))
 const Invites = lazy(() => import('../pages/Invites'))
+const Voice = lazy(() => import('../pages/Voice'))
 
 export const coreRoutes = [
   {
@@ -78,6 +80,16 @@ export const coreRoutes = [
     getProps: () => ({}),
     sidebar: true,
     order: 4,
+  },
+  {
+    id: 'voice',
+    path: '/voice',
+    label: 'Voice',
+    icon: Mic,
+    component: Voice,
+    getProps: () => ({}),
+    sidebar: true,
+    order: 5,
   },
   {
     id: 'settings',

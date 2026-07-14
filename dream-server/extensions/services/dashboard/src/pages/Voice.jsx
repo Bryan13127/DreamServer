@@ -22,10 +22,13 @@ import {
   Radio,
   CheckCircle,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  Zap,
+  ZapOff,
+  MonitorSpeaker,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useVoiceAgent } from '../hooks/useVoiceAgent'
+import { useVoice } from '../contexts/VoiceContext'
 
 // Auth: nginx injects Authorization header for all /api/ requests (see nginx.conf).
 
@@ -314,12 +317,15 @@ export default function Voice() {
     error,
     volume,
     isMuted,
+    handsFree,
+    otherWindowActive,
     toggleListening,
     toggleMute,
     updateVolume,
     interrupt,
     clearMessages,
-  } = useVoiceAgent()
+    toggleHandsFree,
+  } = useVoice()
 
   const [showSettings, setShowSettings] = useState(false)
   const messagesEndRef = useRef(null)
@@ -422,6 +428,14 @@ export default function Voice() {
           loading={servicesLoading} 
           onRefresh={refreshServices}
         />
+
+        {/* Other-window awareness banner */}
+        {otherWindowActive && (
+          <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center gap-3">
+            <MonitorSpeaker size={16} className="text-yellow-400 shrink-0" />
+            <span className="text-sm text-yellow-400">Voice is active in another window</span>
+          </div>
+        )}
       </div>
 
       {/* Conversation Area */}
@@ -493,12 +507,13 @@ export default function Voice() {
             </button>
           )}
 
-          {/* Main Mic Button */}
+          {/* Main Mic Button — disabled while hands-free is active */}
           <button
-            onClick={toggleListening}
-            disabled={status === 'connecting'}
+            onClick={handsFree ? undefined : toggleListening}
+            disabled={status === 'connecting' || handsFree}
+            title={handsFree ? 'Hands-free: VAD controls the mic automatically' : undefined}
             className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
-              status === 'connecting'
+              status === 'connecting' || handsFree
                 ? 'bg-theme-border cursor-not-allowed'
                 : isListening 
                   ? 'bg-red-500 hover:bg-red-600 scale-110'
@@ -529,16 +544,37 @@ export default function Voice() {
         <p className="text-center text-sm text-theme-text-muted mt-4">
           {status === 'connecting' 
             ? 'Connecting to voice server...'
-            : isListening 
-              ? 'Listening... Click to stop' 
-              : 'Click to start talking'
+            : handsFree
+              ? isListening
+                ? 'Hands-free: listening…'
+                : 'Hands-free: waiting for speech…'
+              : isListening 
+                ? 'Listening... Click to stop' 
+                : 'Click to start talking'
           }
         </p>
 
+        {/* Hands-free toggle */}
+        <div className="flex items-center justify-center mt-4">
+          <button
+            onClick={toggleHandsFree}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
+              handsFree
+                ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 hover:bg-indigo-500/30'
+                : 'bg-theme-surface text-theme-text-muted border-theme-border hover:border-indigo-500/40 hover:text-theme-text'
+            }`}
+          >
+            {handsFree ? <Zap size={15} /> : <ZapOff size={15} />}
+            {handsFree ? 'Hands-free ON' : 'Hands-free OFF'}
+          </button>
+        </div>
+
         {/* Keyboard hint */}
-        <p className="text-center text-xs text-theme-text-muted mt-2">
-          Tip: Hold <kbd className="px-1.5 py-0.5 bg-theme-card rounded text-theme-text-muted">Space</kbd> to talk
-        </p>
+        {!handsFree && (
+          <p className="text-center text-xs text-theme-text-muted mt-3">
+            Tip: Press <kbd className="px-1.5 py-0.5 bg-theme-card rounded text-theme-text-muted">Space</kbd> to talk
+          </p>
+        )}
       </div>
 
       {/* Settings Modal */}
