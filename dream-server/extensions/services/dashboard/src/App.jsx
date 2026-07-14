@@ -2,6 +2,8 @@ import { Routes, Route } from 'react-router-dom'
 import { useState, useEffect, Suspense, useMemo, useCallback, lazy } from 'react'
 import Sidebar from './components/Sidebar'
 import InstallPromptBanner from './components/InstallPromptBanner'
+import FloatingVoiceWidget from './components/FloatingVoiceWidget'
+import { VoiceProvider } from './contexts/VoiceContext'
 import { useSystemStatus } from './hooks/useSystemStatus'
 import { useVersion } from './hooks/useVersion'
 import { useFirstRun } from './hooks/useFirstRun'
@@ -89,6 +91,7 @@ function App() {
   }
 
   return (
+    <VoiceProvider>
     <div className="flex min-h-screen bg-theme-bg text-theme-text relative">
       {!splashDone && <SplashScreen onComplete={() => {
         setStorageValue(globalThis.sessionStorage, 'dream-splash-shown', '1')
@@ -134,7 +137,11 @@ function App() {
           install. No-op on already-installed PWAs and on browsers that
           can't install (e.g. Firefox desktop). See usePwaInstallPrompt. */}
       <InstallPromptBanner />
+
+      {/* Persistent floating voice widget — survives page navigation */}
+      <FloatingVoiceWidget />
     </div>
+    </VoiceProvider>
   )
 }
 
