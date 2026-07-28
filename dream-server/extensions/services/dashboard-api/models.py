@@ -159,3 +159,16 @@ class ModelLibraryResponse(BaseModel):
     models: list[ModelLibraryEntry]
     gpu: Optional[ModelLibraryGpu] = None
     currentModel: Optional[str] = None
+
+
+class SecurityAuditCheck(BaseModel):
+    name: str
+    status: str  # "pass" | "warn" | "fail"
+    message: str
+
+
+class SecurityAuditResult(BaseModel):
+    passed: int
+    warned: int
+    failed: int
+    checks: list[SecurityAuditCheck]
