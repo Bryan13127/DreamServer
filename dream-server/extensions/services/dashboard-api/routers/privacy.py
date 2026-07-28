@@ -1,17 +1,19 @@
-"""Privacy Shield management endpoints."""
+"""Privacy Shield management and security audit endpoints."""
 
 import asyncio
 import json
 import logging
 import os
+import re
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import aiohttp
 from fastapi import APIRouter, Depends
 
-from config import AGENT_URL, DREAM_AGENT_KEY, SERVICES
-from models import PrivacyShieldStatus, PrivacyShieldToggle
+from config import AGENT_URL, DREAM_AGENT_KEY, INSTALL_DIR, SERVICES
+from models import PrivacyShieldStatus, PrivacyShieldToggle, SecurityAuditCheck, SecurityAuditResult
 from security import verify_api_key
 
 logger = logging.getLogger(__name__)
@@ -107,3 +109,131 @@ async def get_privacy_shield_stats(api_key: str = Depends(verify_api_key)):
     except (asyncio.TimeoutError, aiohttp.ClientError, OSError):
         logger.exception("Cannot reach Privacy Shield")
         return {"error": "Cannot reach Privacy Shield", "enabled": False}
+
+
+# ---------------------------------------------------------------------------
+# Security audit
+# ---------------------------------------------------------------------------
+
+def _check_privacy_shield(services: dict) -> SecurityAuditCheck:
+    """Return pass/warn based on whether the privacy-shield service is declared."""
+    ps = services.get("privacy-shield")
+    if ps:
+        return SecurityAuditCheck(
+            name="Privacy Shield service declared",
+            status="pass",
+            message="privacy-shield is registered in the service registry",
+        )
+    return SecurityAuditCheck(
+        name="Privacy Shield service declared",
+        status="warn",
+        message="privacy-shield is not in the service registry — PII protection may be inactive",
+    )
+
+
+def _check_tailscale(services: dict) -> SecurityAuditCheck:
+    """Return pass/warn based on whether the tailscale service is declared."""
+    ts = services.get("tailscale")
+    if ts:
+        return SecurityAuditCheck(
+            name="Tailscale remote access declared",
+            status="pass",
+            message="tailscale is registered in the service registry",
+        )
+    return SecurityAuditCheck(
+        name="Tailscale remote access declared",
+        status="warn",
+        message="tailscale is not in the service registry — remote access is not configured",
+    )
+
+
+def _check_port_bindings(install_dir: str) -> SecurityAuditCheck:
+    """Scan compose files for ports bound to 0.0.0.0 (exposes services to all interfaces)."""
+    compose_files = list(Path(install_dir).glob("docker-compose*.yml")) + \
+                    list(Path(install_dir).glob("docker-compose*.yaml"))
+
+    exposed: list[str] = []
+    for cf in compose_files:
+        try:
+            text = cf.read_text()
+        except OSError:
+            continue
+        for line in text.splitlines():
+            # Match hard-coded "0.0.0.0:<port>:<port>" patterns — not env-var references
+            if re.search(r'0\.0\.0\.0:[0-9]', line):
+                exposed.append(f"{cf.name}: {line.strip()}")
+
+    if exposed:
+        sample = "; ".join(exposed[:3])
+        return SecurityAuditCheck(
+            name="Compose port bindings",
+            status="fail",
+            message=(
+                f"{len(exposed)} port binding(s) use 0.0.0.0 (exposes services to all network "
+                f"interfaces). Use ${{BIND_ADDRESS:-127.0.0.1}} instead. Examples: {sample}"
+            ),
+        )
+    return SecurityAuditCheck(
+        name="Compose port bindings",
+        status="pass",
+        message="No hard-coded 0.0.0.0 port bindings found in compose files",
+    )
+
+
+async def _check_privacy_shield_live(services: dict) -> SecurityAuditCheck:
+    """Probe the privacy-shield health endpoint to confirm it is actually reachable."""
+    ps = services.get("privacy-shield", {})
+    port = int(os.environ.get("SHIELD_PORT", str(ps.get("port", 0))))
+    host = ps.get("host", "privacy-shield")
+    if not port:
+        return SecurityAuditCheck(
+            name="Privacy Shield live health",
+            status="warn",
+            message="privacy-shield port unknown — cannot probe health endpoint",
+        )
+    url = f"http://{host}:{port}/health"
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
+            async with session.get(url) as resp:
+                if resp.status == 200:
+                    return SecurityAuditCheck(
+                        name="Privacy Shield live health",
+                        status="pass",
+                        message=f"privacy-shield responded healthy at {url}",
+                    )
+                return SecurityAuditCheck(
+                    name="Privacy Shield live health",
+                    status="warn",
+                    message=f"privacy-shield returned HTTP {resp.status} at {url}",
+                )
+    except (asyncio.TimeoutError, aiohttp.ClientError, OSError):
+        return SecurityAuditCheck(
+            name="Privacy Shield live health",
+            status="warn",
+            message=f"privacy-shield not reachable at {url} — container may be stopped",
+        )
+
+
+@router.get("/api/security/audit", response_model=SecurityAuditResult)
+async def security_audit(api_key: str = Depends(verify_api_key)):
+    """Run a security posture audit across privacy and remote-access services.
+
+    Checks performed:
+    - privacy-shield service registration
+    - tailscale service registration
+    - live health of the privacy-shield container
+    - docker-compose port bindings (flags hard-coded 0.0.0.0 bindings)
+    """
+    checks: list[SecurityAuditCheck] = [
+        _check_privacy_shield(SERVICES),
+        _check_tailscale(SERVICES),
+        await _check_privacy_shield_live(SERVICES),
+        _check_port_bindings(INSTALL_DIR),
+    ]
+
+    return SecurityAuditResult(
+        passed=sum(1 for c in checks if c.status == "pass"),
+        warned=sum(1 for c in checks if c.status == "warn"),
+        failed=sum(1 for c in checks if c.status == "fail"),
+        checks=checks,
+    )
