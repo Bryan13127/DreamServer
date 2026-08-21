@@ -1,0 +1,17 @@
+{
+  "name": "instagram-api-integration",
+  "version": "1.0.0",
+  "description": "Instagram API integration for DreamServer",
+  "main": "fetch-userdata.js",
+  "scripts": {
+    "start": "node fetch-userdata.js",
+    "test": "node fetch-userdata.js --test"
+  },
+  "keywords": ["instagram", "api", "graph"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1"
+  }
+}
